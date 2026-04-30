@@ -20,6 +20,7 @@ npx skills add withastro/astro-maintainer-skills -g
 |---|---|
 | **astro-test-perf** | Analyze CI test performance to find the slowest tests and produce a report with per-suite tables, platform breakdowns, and actionable recommendations. |
 | **astro-preview-release** | Trigger and monitor a preview release for an Astro pull request using pkg.pr.new. |
+| **security-advisory-review** | Review and assess security advisories filed against Astro. Evaluates whether a report describes a real exploitable vulnerability or just a bug/theoretical concern. |
 
 ## Usage
 
@@ -27,3 +28,4 @@ Once installed, your agent will automatically detect and use these skills when r
 
 - *"Run the test perf analysis"*
 - *"Create a preview release for this PR"*
+- *"Review this security advisory"*

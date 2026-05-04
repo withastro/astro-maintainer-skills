@@ -1,0 +1,23 @@
+skills/astro-release/SKILL.md
+  1e0e8b4ff6cf98e7 1-176
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.8",
+  "base_commit_sha": "fe0085541b4c97242ef2b0bf430315d6d1ae174f",
+  "prompts": {
+    "1e0e8b4ff6cf98e7": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_20cc7c1afffe7vEtWFyJZkYBDf",
+        "model": "anthropic/claude-opus-4-6"
+      },
+      "human_author": "Matthew Phillips",
+      "messages": [],
+      "total_additions": 176,
+      "total_deletions": 0,
+      "accepted_lines": 176,
+      "overriden_lines": 0
+    }
+  }
+}

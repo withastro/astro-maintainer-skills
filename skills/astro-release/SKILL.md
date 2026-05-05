@@ -74,6 +74,115 @@ Use `linear_save_issue` for each. Set the `parentId` on each sub-issue to the pa
 
 After creation, summarize what was created with links to the milestone and parent Linear ticket.
 
+## Generate Contributors List
+
+The release article includes a list of community contributors since the last release. When the user asks to generate the contributors list (or when working on the "Run scripts to update contributions of blog post" task), follow this procedure.
+
+You need one piece of information: the **since date** — the date/time of the last minor release commit. The user may provide this directly, or you can find it by looking at the last Astro release tag:
+
+```bash
+gh api repos/withastro/astro/releases/latest --jq '.published_at'
+```
+
+Or for a specific version:
+```bash
+gh api repos/withastro/astro/releases/tags/astro@VERSION --jq '.published_at'
+```
+
+### Configuration
+
+**Repos to search:** `withastro/astro` and `withastro/docs`
+
+**Ignored logins** (always skip these): `astrobot-houston`
+
+**Core team logins** (skip as contributors, but still scan their PRs for community commenters/reviewers):
+
+```
+aFuzzyBear, alexanderniebuhr, ArmandPhilippot, ascorbic, bholmesdev, delucis,
+ematipico, florian-lefebvre, FredKSchott, Fryuni, HiDeoo, jasikpark, matthewp,
+natemoo-re, Princesseuh, sarah11918, TheOtterlord, yanthomasdev
+```
+
+### Step 1: Find all merged PRs since the last release
+
+For each repo, search for merged PRs on `main` since the given date:
+
+```bash
+gh api --paginate 'search/issues?q=repo:withastro/astro+is:pr+is:merged+base:main+merged:SINCE_ISO..NOW_ISO&per_page=100' --jq '.items[] | select(.user.type != "Bot") | select(.user.login != "astrobot-houston") | .number' 
+```
+
+```bash
+gh api --paginate 'search/issues?q=repo:withastro/docs+is:pr+is:merged+base:main+merged:SINCE_ISO..NOW_ISO&per_page=100' --jq '.items[] | select(.user.type != "Bot") | select(.user.login != "astrobot-houston") | .number'
+```
+
+Replace `SINCE_ISO` with the since date in ISO 8601 format and `NOW_ISO` with the current date/time.
+
+### Step 2: For each PR, collect contributors
+
+For each PR number, fetch the PR details plus all comments, review comments, and reviews. Use parallel `gh api` calls where possible to stay efficient.
+
+```bash
+# PR author
+gh api repos/OWNER/REPO/pulls/PR_NUMBER --jq '.user.login + " " + .user.html_url'
+
+# Issue comments
+gh api repos/OWNER/REPO/issues/PR_NUMBER/comments --jq '.[] | select(.user.type != "Bot") | .user.login + " " + .user.html_url'
+
+# Review comments (inline)
+gh api repos/OWNER/REPO/pulls/PR_NUMBER/comments --jq '.[] | select(.user.type != "Bot") | .user.login + " " + .user.html_url'
+
+# Reviews
+gh api repos/OWNER/REPO/pulls/PR_NUMBER/reviews --jq '.[] | select(.user.type != "Bot") | .user.login + " " + .user.html_url'
+```
+
+**Important rules for collecting contributors:**
+- The PR **author** is a contributor if they are NOT in the core team list and NOT in the ignored list.
+- **Commenters and reviewers** are contributors if they are NOT in the core team list, NOT in the ignored list, and NOT bots.
+- Core team PRs must still be scanned — community members may have commented or reviewed on them.
+- Deduplicate by GitHub login across all PRs and repos.
+
+Because there can be many PRs (50-200+), process them in batches. Use a bash script to loop through PR numbers efficiently rather than making individual tool calls per PR:
+
+```bash
+for pr in PR_NUMBERS; do
+  gh api "repos/OWNER/REPO/pulls/$pr" --jq '.user.login + " " + .user.html_url' 2>/dev/null
+  gh api "repos/OWNER/REPO/issues/$pr/comments" --jq '.[] | select(.user.type != "Bot") | .user.login + " " + .user.html_url' 2>/dev/null
+  gh api "repos/OWNER/REPO/pulls/$pr/comments" --jq '.[] | select(.user.type != "Bot") | .user.login + " " + .user.html_url' 2>/dev/null
+  gh api "repos/OWNER/REPO/pulls/$pr/reviews" --jq '.[] | select(.user.type != "Bot") | .user.login + " " + .user.html_url' 2>/dev/null
+done
+```
+
+### Step 3: Resolve display names
+
+For each unique contributor login, fetch their display name:
+
+```bash
+gh api users/LOGIN --jq '.name // .login'
+```
+
+If the user has no name set, fall back to their login.
+
+### Step 4: Format the output
+
+Sort contributors alphabetically by display name and format as a Markdown list:
+
+```
+[Display Name](https://github.com/login), [Display Name 2](https://github.com/login2), and [Display Name 3](https://github.com/login3)
+```
+
+Use English conjunction format: items separated by commas with "and" before the last item.
+
+Present the final list to the user. They may ask you to write it to a file or copy it to the clipboard (`pbcopy` on macOS).
+
+### For major releases
+
+Major releases use different branches and a broader time window. The user will need to specify:
+- The **development branch** for each repo (e.g., `next` for `withastro/astro`, `v6` for `withastro/docs`)
+- The **since date** for the major (date of the last major release)
+- If the dev branch was already merged into `main`, also search `main` from the merge date onward
+
+Adjust the `base:` query parameter accordingly when searching for PRs.
+
 ## Release Day: Monitoring and Execution
 
 On release day (and merge day), the user will ask for status updates and help completing tasks. The primary job here is to give an accurate picture of where things stand and take action when asked.
@@ -106,7 +215,7 @@ gh pr list --repo withastro/astro --milestone "VERSION" --state open
 Report which PRs are still open and need merging.
 
 **Run scripts to update contributions of blog post** (merge day)
-This is done by emanuele. Monitor via the Linear ticket status. No automated action needed.
+This task generates the community contributors list for the release blog post. If the user asks you to do this, follow the "Generate Contributors List" section above. Otherwise, emanuele may handle it manually using the external `astro-release-contributors` tool.
 
 **npm release - push the button** (release day)
 This is done by emanuele via a changeset PR. To check if it's been published, look for the "Version Packages" PR:
